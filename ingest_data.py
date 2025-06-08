@@ -44,49 +44,49 @@ def main():
         print(f"Error loading model: {e}")
         return
 
-    # # 3. Read the JSON data
-    # try:
-    #     with open(JSON_FILE_PATH, 'r', encoding='utf-8') as f:
-    #         qas = json.load(f)
-    #     print(f"Loaded {len(qas)} Q&A pairs from {JSON_FILE_PATH}.")
-    # except Exception as e:
-    #     print(f"Error reading JSON file: {e}")
-    #     return
+    # 3. Read the JSON data
+    try:
+        with open(JSON_FILE_PATH, 'r', encoding='utf-8') as f:
+            qas = json.load(f)
+        print(f"Loaded {len(qas)} Q&A pairs from {JSON_FILE_PATH}.")
+    except Exception as e:
+        print(f"Error reading JSON file: {e}")
+        return
 
-    # # 4. Process and prepare documents for insertion
-    # documents_to_insert = []
-    # print("Generating embeddings and preparing documents...")
-    # for item in qas:
-    #     question = item.get("question")
-    #     if not question:
-    #         print(f"Skipping item due to missing question: {item}")
-    #         continue
+    # 4. Process and prepare documents for insertion
+    documents_to_insert = []
+    print("Generating embeddings and preparing documents...")
+    for item in qas:
+        question = item.get("question")
+        if not question:
+            print(f"Skipping item due to missing question: {item}")
+            continue
 
-    #     # Generate the vector embedding for the question
-    #     question_vector = model.encode(question).tolist()
+        # Generate the vector embedding for the question
+        question_vector = model.encode(question).tolist()
 
-    #     # Create the document for MongoDB
-    #     document = {
-    #         "source": "webinar",
-    #         "questionText": question,
-    #         "answerText": item.get("answer"),
-    #         "questionVector": question_vector,
-    #         "sourceDetails": {
-    #             "webinarTitle": item.get("webinar_title"),
-    #             "webinarDate": item.get("webinar_date")
-    #         }
-    #     }
-    #     documents_to_insert.append(document)
+        # Create the document for MongoDB
+        document = {
+            "source": "webinar",
+            "questionText": question,
+            "answerText": item.get("answer"),
+            "questionVector": question_vector,
+            "sourceDetails": {
+                "webinarTitle": item.get("webinar_title"),
+                "webinarDate": item.get("webinar_date")
+            }
+        }
+        documents_to_insert.append(document)
     
-    # # 5. Batch insert documents into MongoDB
-    # if documents_to_insert:
-    #     try:
-    #         collection.insert_many(documents_to_insert)
-    #         print(f"Successfully inserted {len(documents_to_insert)} documents into MongoDB.")
-    #     except Exception as e:
-    #         print(f"Error inserting documents into MongoDB: {e}")
-    # else:
-    #     print("No documents were prepared for insertion.")
+    # 5. Batch insert documents into MongoDB
+    if documents_to_insert:
+        try:
+            collection.insert_many(documents_to_insert)
+            print(f"Successfully inserted {len(documents_to_insert)} documents into MongoDB.")
+        except Exception as e:
+            print(f"Error inserting documents into MongoDB: {e}")
+    else:
+        print("No documents were prepared for insertion.")
 
 if __name__ == "__main__":
     main()
