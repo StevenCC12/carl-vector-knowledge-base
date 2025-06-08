@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -16,20 +17,19 @@ COLLECTION_NAME = os.getenv("COLLECTION_NAME")
 MODEL_NAME = os.getenv("MODEL_NAME")
 VECTOR_SEARCH_INDEX = os.getenv("VECTOR_SEARCH_INDEX")
 
-# --- Initialize Application and Models on Startup ---
-# This approach ensures models and DB connections are loaded once
-app = FastAPI()
-
-@app.on_event("startup")
-def startup_event():
+# --- Lifespan Event Handler ---
+# This context manager will handle startup and shutdown events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """
-    On startup, load the ML model and connect to the database.
+    Manages application lifespan. Runs on startup and shutdown.
     """
+    # === Code to run on STARTUP ===
     print("Application startup: Loading resources...")
     if not MONGO_CONNECTION_STRING:
         raise RuntimeError("MONGO_CONNECTION_STRING not found in .env file")
 
-    # Store resources in the app state
+    # Store resources in the app state to be accessible by endpoints
     app.state.model = SentenceTransformer(MODEL_NAME)
     print("SentenceTransformer model loaded.")
     
@@ -39,13 +39,17 @@ def startup_event():
     
     app.state.db_collection = app.state.db_client[DB_NAME][COLLECTION_NAME]
     
-@app.on_event("shutdown")
-def shutdown_event():
-    """
-    On shutdown, close the database connection.
-    """
+    yield # The application is now running and serving requests
+
+    # === Code to run on SHUTDOWN ===
     print("Application shutdown: Closing resources...")
     app.state.db_client.close()
+    print("MongoDB connection closed.")
+
+
+# --- Initialize FastAPI Application ---
+# Pass the lifespan handler to the FastAPI constructor
+app = FastAPI(lifespan=lifespan)
 
 
 # --- Pydantic Models for API Data Structure ---
@@ -56,10 +60,10 @@ class APIResponse(BaseModel):
     action: str
     message: str
     score: float
-    retrieved_question: str | None = None # The question from the KB that was matched
+    retrieved_question: str | None = None
 
 
-# --- API Endpoint ---
+# --- API Endpoints ---
 @app.post("/find-similar-question", response_model=APIResponse)
 def find_similar_question(request: QuestionRequest):
     """
@@ -112,6 +116,7 @@ def find_similar_question(request: QuestionRequest):
     retrieved_answer = top_match.get("answerText")
     retrieved_question = top_match.get("questionText")
 
+    # These thresholds are a starting point. You'll need to test and tune them.
     if similarity_score >= 0.95: # High confidence
         action = "auto-reply"
         message = retrieved_answer
@@ -131,5 +136,5 @@ def find_similar_question(request: QuestionRequest):
 
 @app.get("/health")
 def health_check():
-    """A simple health check endpoint."""
+    """A simple health check endpoint to confirm the API is running."""
     return {"status": "ok"}
